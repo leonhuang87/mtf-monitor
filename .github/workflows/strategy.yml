@@ -26,6 +26,11 @@ on:
         required: false
         type: boolean
         default: false
+      reset_strategy:
+        description: '重置策略（清空 state+trades，如 ETH-USDT）'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -73,7 +78,11 @@ jobs:
           WXPUSHER_SPT: ${{ secrets.WXPUSHER_SPT }}
         run: |
           echo "=== 策略运行开始 $(date -u '+%Y-%m-%d %H:%M:%S UTC') ==="
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          RESET="${{ github.event.inputs.reset_strategy }}"
+          if [ -n "$RESET" ]; then
+            echo "重置策略: $RESET"
+            python strategy_step.py --reset "$RESET"
+          elif [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             python strategy_step.py --dry-run
           else
             python strategy_step.py
