@@ -169,20 +169,32 @@ def main():
 
     with detail_col2:
         st.subheader("权益曲线")
-        curve_plotted = False
-        for s in states:
+        import altair as alt
+        layers = []
+        colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
+        for i, s in enumerate(states):
             try:
                 curve = fetch_equity_curve(conn, s["strategy_id"], limit=200)
                 if curve and len(curve) > 1:
                     df_c = pd.DataFrame(curve, columns=["ts", "equity"])
-                    df_c["时间"] = df_c["ts"].apply(fmt_ts)
-                    st.line_chart(df_c.set_index("时间")["equity"],
-                                  use_container_width=True)
-                    curve_plotted = True
-                    break  # 只画第一个策略的曲线
+                    df_c["dt"] = pd.to_datetime(df_c["ts"], unit="ms") + pd.Timedelta(hours=8)
+                    sid = s["strategy_id"]
+                    color = colors[i % len(colors)]
+                    ch = alt.Chart(df_c).mark_line(color=color, strokeWidth=2).encode(
+                        x=alt.X("dt:T", title="时间"),
+                        y=alt.Y("equity:Q", title=sid, axis=alt.Axis(titleColor=color)),
+                        tooltip=[
+                            alt.Tooltip("dt:T", title="时间"),
+                            alt.Tooltip("equity:Q", title=sid, format=".2f"),
+                        ],
+                    )
+                    layers.append(ch)
             except Exception:
                 pass
-        if not curve_plotted:
+        if layers:
+            combined = alt.layer(*layers).resolve_scale(y="independent")
+            st.altair_chart(combined, use_container_width=True)
+        else:
             st.info("暂无权益曲线数据（需有平仓记录）")
 
     # 页脚
