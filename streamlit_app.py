@@ -93,15 +93,13 @@ def fmt_side(pos: int) -> str:
 def main():
     st.title("📈 MTF 策略云端监控")
 
-    # 60秒自动刷新（Streamlit 原生 st.fragment）
-    @st.fragment(run_every=timedelta(seconds=60))
-    def _auto_refresh():
-        st.rerun()
-    _auto_refresh()
-
-    # 手动刷新按钮
-    col_r1, col_r2 = st.columns([3, 1])
+    # 自动刷新控件 + 手动刷新按钮（与本地 lite/dashboard.py 一致，避免 st.fragment 在 Cloud 上的兼容问题）
+    col_r1, col_r2, col_r3 = st.columns([1, 1, 1])
+    with col_r1:
+        auto_refresh = st.checkbox("自动刷新", value=True)
     with col_r2:
+        refresh_sec = st.number_input("刷新秒", 30, 600, 60, step=30, label_visibility="collapsed")
+    with col_r3:
         if st.button("🔄 刷新", use_container_width=True):
             st.rerun()
 
@@ -200,6 +198,12 @@ def main():
 
     # 页脚
     st.caption(f"最后更新: {datetime.now(CN_TZ).strftime('%Y-%m-%d %H:%M:%S')}")
+
+    # 自动刷新（time.sleep + st.rerun，与本地 dashboard.py 一致，Cloud 上稳定）
+    if auto_refresh:
+        import time
+        time.sleep(int(refresh_sec))
+        st.rerun()
 
 
 if __name__ == "__main__":
