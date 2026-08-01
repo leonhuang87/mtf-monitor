@@ -72,13 +72,7 @@ def get_db_conn():
         return conn
     except Exception as e:
         import traceback
-        st.error(
-            f"数据库连接/初始化失败:\n\n"
-            f"**异常**: `{type(e).__name__}: {e}`\n\n"
-            f"**TURSO_URL**: `{url}`\n\n"
-            f"**TURSO_TOKEN 长度**: {len(token)} | 前10: `{token[:10]}` | 后10: `{token[-10:]}`\n\n"
-            f"```\n{traceback.format_exc()}\n```"
-        )
+        st.error(f"数据库连接失败:\n```\n{traceback.format_exc()}\n```")
         st.stop()
 
 
@@ -115,11 +109,7 @@ def main():
         states = []
 
     if not states:
-        st.info("暂无策略运行数据。请先在 GitHub Actions 触发一次 workflow_dispatch 验证。")
-        # 显示环境信息
-        with st.expander("配置信息"):
-            st.write(f"TURSO_URL: {st.secrets.get('TURSO_URL', '未配置')[:40]}...")
-            st.write("Secrets 配置位置：Streamlit Cloud → Settings → Secrets")
+        st.info("暂无策略运行数据，等待下一次策略执行写入。")
         return
 
     # ---- 策略卡片 ----
@@ -195,19 +185,8 @@ def main():
         if not curve_plotted:
             st.info("暂无权益曲线数据（需有平仓记录）")
 
-    # ---- 底部：环境与帮助 ----
-    with st.expander("ℹ️ 部署信息"):
-        st.write("**数据源**：Turso (libSQL)")
-        turso_url = st.secrets.get("TURSO_URL", os.environ.get("TURSO_URL", ""))
-        if turso_url:
-            st.write(f"连接: `{turso_url[:50]}...`")
-        st.write("**运行环境**：GitHub Actions（公开仓库 cron `*/5 * * * *`）")
-        st.write("**策略**：1h EMA(10,30) + 5m RSI(14,50) + 斜率确认(0.4)，TP5% SL3% 冷却12h")
-        st.write("**刷新**：点击右上角刷新按钮，或配置 streamlit-autorefresh 实现自动刷新")
-
     # 页脚
-    st.caption(f"最后查询: {datetime.now(CN_TZ).strftime('%Y-%m-%d %H:%M:%S')} | "
-               f"策略数: {len(states)}")
+    st.caption(f"最后更新: {datetime.now(CN_TZ).strftime('%Y-%m-%d %H:%M:%S')}")
 
 
 if __name__ == "__main__":
