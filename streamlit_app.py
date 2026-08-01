@@ -93,7 +93,14 @@ def fmt_side(pos: int) -> str:
 def main():
     st.title("📈 MTF 策略云端监控")
 
-    # 手动刷新按钮 + 自动刷新提示
+    # 60秒自动刷新
+    import streamlit.components.v1 as components
+    components.html(
+        '<script>setTimeout(function(){window.location.reload();}, 60000);</script>',
+        height=0,
+    )
+
+    # 手动刷新按钮
     col_r1, col_r2 = st.columns([3, 1])
     with col_r2:
         if st.button("🔄 刷新", use_container_width=True):
