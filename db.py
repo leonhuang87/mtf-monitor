@@ -4,7 +4,8 @@
 表结构：
   klines(inst_id, ts, open, high, low, close, vol, volCcy, volCcyQuote)  -- K线缓存
   state(strategy_id PK, position, entry_price, qty, cooldown_until,
-        last_bar_ts, last_signal, equity, equity0, updated_at)           -- 策略状态
+        last_bar_ts, last_signal, equity, equity0, updated_at,
+        cash, notional)                                                  -- 策略状态
   trades(id PK, strategy_id, ts, action, side, price, qty, fee, pnl,
          reason, bar_ts)                                                 -- 交易历史
 
@@ -56,6 +57,25 @@ def get_conn(turso_url: str | None = None, turso_token: str | None = None,
     return conn
 
 
+def _migrate_add_column_if_missing(conn, table: str, column: str,
+                                   decl: str) -> None:
+    """为已有表添加缺失列（幂等）。
+
+    SQLite/libSQL 的 ALTER TABLE ADD COLUMN 不支持 IF NOT EXISTS，
+    通过 PRAGMA table_info 检查后再决定是否 ALTER。
+    """
+    try:
+        cur = conn.execute(f"PRAGMA table_info({table})")
+        existing = {row[1] for row in cur.fetchall()}
+        if column not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+            logger.info(f"[db] 迁移: ALTER TABLE {table} ADD COLUMN {column} {decl}")
+            conn.commit()
+    except Exception as e:
+        # 旧表不存在或其他异常时静默（init_schema 会先建表）
+        logger.debug(f"[db] 迁移 {table}.{column} 跳过: {e}")
+
+
 def init_schema(conn) -> None:
     """建表（幂等）。libSQL 与 SQLite 语法一致。"""
     conn.execute(
@@ -88,10 +108,15 @@ def init_schema(conn) -> None:
             last_signal   INTEGER NOT NULL DEFAULT 0,
             equity        REAL NOT NULL DEFAULT 0,
             equity0       REAL NOT NULL DEFAULT 0,
-            updated_at    INTEGER NOT NULL DEFAULT 0
+            updated_at    INTEGER NOT NULL DEFAULT 0,
+            cash          REAL NOT NULL DEFAULT 0,
+            notional      REAL NOT NULL DEFAULT 0
         )
         """
     )
+    # 旧表迁移：补齐新列（CREATE IF NOT EXISTS 不会对已有表加列）
+    _migrate_add_column_if_missing(conn, "state", "cash", "REAL NOT NULL DEFAULT 0")
+    _migrate_add_column_if_missing(conn, "state", "notional", "REAL NOT NULL DEFAULT 0")
 
     conn.execute(
         """
@@ -120,8 +145,8 @@ def fetch_all_state(conn) -> list[dict]:
     """取所有策略状态（监控页用）。"""
     cur = conn.execute(
         "SELECT strategy_id, position, entry_price, qty, cooldown_until, "
-        "last_bar_ts, last_signal, equity, equity0, updated_at FROM state "
-        "ORDER BY strategy_id"
+        "last_bar_ts, last_signal, equity, equity0, updated_at, cash, notional "
+        "FROM state ORDER BY strategy_id"
     )
     rows = cur.fetchall()
     return [
@@ -130,6 +155,8 @@ def fetch_all_state(conn) -> list[dict]:
             "qty": float(r[3]), "cooldown_until": int(r[4]), "last_bar_ts": int(r[5]),
             "last_signal": int(r[6]), "equity": float(r[7]), "equity0": float(r[8]),
             "updated_at": int(r[9]),
+            "cash": float(r[10]) if r[10] is not None else 0.0,
+            "notional": float(r[11]) if r[11] is not None else 0.0,
         }
         for r in rows
     ]
@@ -157,7 +184,7 @@ def load_state(conn, strategy_id: str, equity0: float = 0.0) -> dict[str, Any]:
     """加载策略状态，不存在返回默认。"""
     cur = conn.execute(
         "SELECT position, entry_price, qty, cooldown_until, last_bar_ts, "
-        "last_signal, equity, equity0, updated_at "
+        "last_signal, equity, equity0, updated_at, cash, notional "
         "FROM state WHERE strategy_id=?",
         (strategy_id,),
     )
@@ -167,6 +194,7 @@ def load_state(conn, strategy_id: str, equity0: float = 0.0) -> dict[str, Any]:
             "strategy_id": strategy_id, "position": 0, "entry_price": 0.0,
             "qty": 0.0, "cooldown_until": 0, "last_bar_ts": 0,
             "last_signal": 0, "equity": equity0, "equity0": equity0, "updated_at": 0,
+            "cash": equity0, "notional": 0.0,
         }
     return {
         "strategy_id": strategy_id, "position": int(row[0]),
@@ -174,6 +202,8 @@ def load_state(conn, strategy_id: str, equity0: float = 0.0) -> dict[str, Any]:
         "cooldown_until": int(row[3]), "last_bar_ts": int(row[4]),
         "last_signal": int(row[5]), "equity": float(row[6]),
         "equity0": float(row[7]), "updated_at": int(row[8]),
+        "cash": float(row[9]) if row[9] is not None else equity0,
+        "notional": float(row[10]) if row[10] is not None else 0.0,
     }
 
 
