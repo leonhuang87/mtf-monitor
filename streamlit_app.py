@@ -168,32 +168,27 @@ def main():
             st.info("暂无交易记录")
 
     with detail_col2:
-        st.subheader("权益曲线")
-        import altair as alt
-        layers = []
-        colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
-        for i, s in enumerate(states):
+        st.subheader("权益曲线（收益率 %）")
+        all_curves = []
+        for s in states:
             try:
                 curve = fetch_equity_curve(conn, s["strategy_id"], limit=200)
                 if curve and len(curve) > 1:
-                    df_c = pd.DataFrame(curve, columns=["ts", "equity"])
-                    df_c["dt"] = pd.to_datetime(df_c["ts"], unit="ms") + pd.Timedelta(hours=8)
-                    sid = s["strategy_id"]
-                    color = colors[i % len(colors)]
-                    ch = alt.Chart(df_c).mark_line(color=color, strokeWidth=2).encode(
-                        x=alt.X("dt:T", title="时间"),
-                        y=alt.Y("equity:Q", title=sid, axis=alt.Axis(titleColor=color)),
-                        tooltip=[
-                            alt.Tooltip("dt:T", title="时间"),
-                            alt.Tooltip("equity:Q", title=sid, format=".2f"),
-                        ],
-                    )
-                    layers.append(ch)
+                    eq0 = curve[0][1]  # 初始权益
+                    for ts, eq in curve:
+                        ret_pct = (eq - eq0) / eq0 * 100 if eq0 > 0 else 0
+                        all_curves.append({
+                            "ts": ts,
+                            "时间": datetime.fromtimestamp(ts / 1000, tz=CN_TZ).strftime("%m-%d %H:%M"),
+                            "收益率%": ret_pct,
+                            "策略": s["strategy_id"],
+                        })
             except Exception:
                 pass
-        if layers:
-            combined = alt.layer(*layers).resolve_scale(y="independent")
-            st.altair_chart(combined, use_container_width=True)
+        if all_curves:
+            df_c = pd.DataFrame(all_curves)
+            df_pivot = df_c.pivot_table(index="时间", columns="策略", values="收益率%")
+            st.line_chart(df_pivot, use_container_width=True)
         else:
             st.info("暂无权益曲线数据（需有平仓记录）")
 
