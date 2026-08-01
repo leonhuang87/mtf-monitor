@@ -93,9 +93,11 @@ def fmt_side(pos: int) -> str:
 def main():
     st.title("📈 MTF 策略云端监控")
 
-    # 60秒自动刷新
-    from streamlit_autorefresh import st_autorefresh
-    st_autorefresh(interval=60000, key="auto_refresh")
+    # 60秒自动刷新（Streamlit 原生 st.fragment）
+    @st.fragment(run_every=timedelta(seconds=60))
+    def _auto_refresh():
+        st.rerun()
+    _auto_refresh()
 
     # 手动刷新按钮
     col_r1, col_r2 = st.columns([3, 1])
