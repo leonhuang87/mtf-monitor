@@ -60,8 +60,8 @@ div[data-testid="stDataFrame"] { max-height: 280px; overflow-y: auto; }
 @st.cache_resource(ttl=300)
 def get_db_conn():
     """获取 Turso 连接（缓存 5 分钟避免频繁建连）。"""
-    url = st.secrets.get("TURSO_URL", os.environ.get("TURSO_URL", ""))
-    token = st.secrets.get("TURSO_TOKEN", os.environ.get("TURSO_TOKEN", ""))
+    url = st.secrets.get("TURSO_URL", os.environ.get("TURSO_URL", "")).strip()
+    token = st.secrets.get("TURSO_TOKEN", os.environ.get("TURSO_TOKEN", "")).strip()
     local = os.environ.get("TURSO_LOCAL_FALLBACK", "data/klines.db")
     if not url or not token:
         st.error("Turso 未配置：请在 Streamlit Cloud Secrets 设置 TURSO_URL 和 TURSO_TOKEN")
@@ -75,7 +75,8 @@ def get_db_conn():
         st.error(
             f"数据库连接/初始化失败:\n\n"
             f"**异常**: `{type(e).__name__}: {e}`\n\n"
-            f"**TURSO_URL**: `{url[:45]}`\n\n"
+            f"**TURSO_URL**: `{url}`\n\n"
+            f"**TURSO_TOKEN 长度**: {len(token)} | 前10: `{token[:10]}` | 后10: `{token[-10:]}`\n\n"
             f"```\n{traceback.format_exc()}\n```"
         )
         st.stop()
