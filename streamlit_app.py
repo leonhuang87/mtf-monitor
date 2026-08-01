@@ -88,7 +88,7 @@ def fmt_side(pos: int) -> str:
 def main():
     st.title("📈 MTF 策略云端监控")
 
-    # 手动刷新按钮
+    # 手动刷新按钮 + 自动刷新提示
     col_r1, col_r2 = st.columns([3, 1])
     with col_r2:
         if st.button("🔄 刷新", use_container_width=True):
@@ -124,22 +124,11 @@ def main():
             ret = pnl / eq0 * 100 if eq0 > 0 else 0
             delta_color = "normal" if pnl >= 0 else "inverse"
 
-            # 币本位（反向合约）以 ETH 计价，U本位以 USDT 计价
-            is_inverse = "USD" in sid and "USDT" not in sid
-            ccy = "ETH" if is_inverse else "USDT"
-            mode_tag = "PAPER" if is_inverse else "API"
-
-            st.metric(label=f"{sid} [{mode_tag}] 净值",
-                      value=f"{eq:.4f} {ccy}",
-                      delta=f"{pnl:+.4f} ({ret:+.2f}%)", delta_color=delta_color)
+            st.metric(label=f"{sid} 净值", value=f"{eq:.2f}",
+                      delta=f"{pnl:+.2f} ({ret:+.2f}%)", delta_color=delta_color)
             st.write(f"持仓: {fmt_side(pos)}")
             if pos != 0:
-                if is_inverse:
-                    # 反向合约: qty 是 ETH 数量，notional 是 USD 名义价值
-                    notional = s.get("notional", 0) or 0
-                    st.write(f"开仓价: {s['entry_price']:.2f} | 数量: {s['qty']:.4f} ETH | 名义: {notional:.0f} USD")
-                else:
-                    st.write(f"开仓价: {s['entry_price']:.2f} | 张数: {s['qty']:.0f}")
+                st.write(f"开仓价: {s['entry_price']:.2f} | 张数: {s['qty']:.0f}")
             st.write(f"最新信号: {s['last_signal']:+d} | 更新: {fmt_ts(s['updated_at'])}")
 
             # 冷却状态
@@ -169,13 +158,10 @@ def main():
             df_t["时间"] = df_t["ts"].apply(fmt_ts)
             df_t = df_t.rename(columns={
                 "strategy_id": "策略", "action": "动作", "side": "方向",
-                "price": "价格", "qty": "数量", "pnl": "盈亏", "reason": "原因",
+                "price": "价格", "qty": "张数", "pnl": "盈亏", "reason": "原因",
             })
             df_t["方向"] = df_t["方向"].map({1: "多", -1: "空", 0: "-"})
-            # 币本位 pnl/数量 以 ETH 计价，加单位标注
-            df_t["计价"] = df_t["策略"].apply(
-                lambda sid: "ETH" if ("USD" in sid and "USDT" not in sid) else "USDT")
-            display_cols = ["时间", "策略", "动作", "方向", "价格", "数量", "盈亏", "计价", "原因"]
+            display_cols = ["时间", "策略", "动作", "方向", "价格", "张数", "盈亏", "原因"]
             st.dataframe(df_t[display_cols], use_container_width=True, hide_index=True)
         else:
             st.info("暂无交易记录")
@@ -187,13 +173,10 @@ def main():
             try:
                 curve = fetch_equity_curve(conn, s["strategy_id"], limit=200)
                 if curve and len(curve) > 1:
-                    sid = s["strategy_id"]
-                    ccy = "ETH" if ("USD" in sid and "USDT" not in sid) else "USDT"
                     df_c = pd.DataFrame(curve, columns=["ts", "equity"])
                     df_c["时间"] = df_c["ts"].apply(fmt_ts)
                     st.line_chart(df_c.set_index("时间")["equity"],
                                   use_container_width=True)
-                    st.caption(f"{sid} 权益曲线（{ccy}）")
                     curve_plotted = True
                     break  # 只画第一个策略的曲线
             except Exception:

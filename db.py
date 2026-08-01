@@ -184,7 +184,7 @@ def load_state(conn, strategy_id: str, equity0: float = 0.0) -> dict[str, Any]:
     """加载策略状态，不存在返回默认。"""
     cur = conn.execute(
         "SELECT position, entry_price, qty, cooldown_until, last_bar_ts, "
-        "last_signal, equity, equity0, updated_at, cash, notional "
+        "last_signal, equity, equity0, updated_at "
         "FROM state WHERE strategy_id=?",
         (strategy_id,),
     )
@@ -194,7 +194,6 @@ def load_state(conn, strategy_id: str, equity0: float = 0.0) -> dict[str, Any]:
             "strategy_id": strategy_id, "position": 0, "entry_price": 0.0,
             "qty": 0.0, "cooldown_until": 0, "last_bar_ts": 0,
             "last_signal": 0, "equity": equity0, "equity0": equity0, "updated_at": 0,
-            "cash": equity0, "notional": 0.0,
         }
     return {
         "strategy_id": strategy_id, "position": int(row[0]),
@@ -202,8 +201,6 @@ def load_state(conn, strategy_id: str, equity0: float = 0.0) -> dict[str, Any]:
         "cooldown_until": int(row[3]), "last_bar_ts": int(row[4]),
         "last_signal": int(row[5]), "equity": float(row[6]),
         "equity0": float(row[7]), "updated_at": int(row[8]),
-        "cash": float(row[9]) if row[9] is not None else equity0,
-        "notional": float(row[10]) if row[10] is not None else 0.0,
     }
 
 
