@@ -12,6 +12,7 @@
 #   WXPUSHER_SPT      (可选) WxPusher 简单推送 token，配置后开仓/平仓/错误会推送到微信
 #
 # workflow_dispatch 可手动触发验证全链路。
+# 2026-08-02: push workflow 文件强制 GitHub 重新注册 schedule（schedule 在 11:50 UTC 后停止触发）
 
 name: MTF Strategy Runner
 
