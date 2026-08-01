@@ -94,11 +94,8 @@ def main():
     st.title("📈 MTF 策略云端监控")
 
     # 60秒自动刷新
-    import streamlit.components.v1 as components
-    components.html(
-        '<script>setTimeout(function(){window.location.reload();}, 60000);</script>',
-        height=0,
-    )
+    from streamlit_autorefresh import st_autorefresh
+    st_autorefresh(interval=60000, key="auto_refresh")
 
     # 手动刷新按钮
     col_r1, col_r2 = st.columns([3, 1])
