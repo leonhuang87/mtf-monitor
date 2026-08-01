@@ -66,9 +66,19 @@ def get_db_conn():
     if not url or not token:
         st.error("Turso 未配置：请在 Streamlit Cloud Secrets 设置 TURSO_URL 和 TURSO_TOKEN")
         st.stop()
-    conn = get_conn(url, token, local)
-    init_schema(conn)
-    return conn
+    try:
+        conn = get_conn(url, token, local)
+        init_schema(conn)
+        return conn
+    except Exception as e:
+        import traceback
+        st.error(
+            f"数据库连接/初始化失败:\n\n"
+            f"**异常**: `{type(e).__name__}: {e}`\n\n"
+            f"**TURSO_URL**: `{url[:45]}`\n\n"
+            f"```\n{traceback.format_exc()}\n```"
+        )
+        st.stop()
 
 
 def fmt_ts(ms: int) -> str:
